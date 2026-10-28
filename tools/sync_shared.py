@@ -30,10 +30,12 @@ def main() -> int:
     dst_dir.mkdir(parents=True, exist_ok=True)
     digests = {}
     for name in SHARED:
-        source = (src_dir / name).read_text(encoding="utf-8")
+        # Read as bytes and normalise CRLF so the digest is identical on
+        # Windows and Linux checkouts.
+        source = (src_dir / name).read_bytes().replace(b"\r\n", b"\n")
         target = dst_dir / name
-        target.write_text(HEADER.format(name=name) + source, encoding="utf-8")
-        digests[name] = hashlib.sha256(source.encode("utf-8")).hexdigest()
+        target.write_bytes(HEADER.format(name=name).encode("utf-8") + source)
+        digests[name] = hashlib.sha256(source).hexdigest()
         print(f"synced {name}")
     # a tiny copy of the catalogue so the add-on can verify tool parity
     sys.path.insert(0, str(ROOT))
@@ -55,8 +57,8 @@ def main() -> int:
 
     init = dst_dir / "__init__.py"
     init.write_text('"""Shared pure-Python modules (generated copies)."""\n', encoding="utf-8")
-    (dst_dir / "SYNC_DIGESTS.json").write_text(
-        __import__("json").dumps(digests, indent=2) + "\n", encoding="utf-8")
+    (dst_dir / "SYNC_DIGESTS.json").write_bytes(
+        (__import__("json").dumps(digests, indent=2) + "\n").encode("utf-8"))
     print(f"{len(SHARED)} files synced to {dst_dir}")
     return 0
 

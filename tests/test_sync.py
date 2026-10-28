@@ -12,8 +12,8 @@ FILES = ["protocol.py", "geometry.py", "regions.py", "relations.py"]
 
 def test_copies_match_source():
     for name in FILES:
-        source = (SOURCE / name).read_text(encoding="utf-8")
-        target = (SHARED / name).read_text(encoding="utf-8")
+        source = (SOURCE / name).read_text(encoding="utf-8").replace("\r\n", "\n")
+        target = (SHARED / name).read_text(encoding="utf-8").replace("\r\n", "\n")
         assert target.rstrip().endswith(source.rstrip()), (
             f"{name} in blenderbridge_addon/shared is stale - run "
             f"'python tools/sync_shared.py' and commit the result"
@@ -23,7 +23,10 @@ def test_copies_match_source():
 def test_digest_file_matches():
     digests = json.loads((SHARED / "SYNC_DIGESTS.json").read_text(encoding="utf-8"))
     for name in FILES:
-        actual = hashlib.sha256((SOURCE / name).read_bytes()).hexdigest()
+        # Newlines are normalised so a CRLF checkout (Windows, core.autocrlf)
+        # produces the same digest as an LF checkout.
+        raw = (SOURCE / name).read_bytes().replace(b"\r\n", b"\n")
+        actual = hashlib.sha256(raw).hexdigest()
         assert digests.get(name) == actual, f"{name} digest mismatch - re-run sync_shared.py"
 
 

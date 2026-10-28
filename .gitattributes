@@ -1,0 +1,11 @@
+# Keep source files identical on every platform. Without this, a Windows
+# checkout (core.autocrlf=true) produces CRLF files and the add-on digests in
+# tests/test_sync.py fail even though nothing is stale.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.blend binary
+*.zip binary
+*.exe binary
+*.log binary
