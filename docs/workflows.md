@@ -10,8 +10,8 @@ Läufe sind im Reiter **Actions** des Repositories nachvollziehbar.
 | Datei | Wann | Was |
 |---|---|---|
 | `.github/workflows/ci.yml` | jeder Push, jeder PR, manuell | Unit-Tests (Linux + Windows), echte Blender-4.2-Tests, Add-on-ZIP als Artefakt |
-| `.github/workflows/build-windows.yml` | Push auf `main`/`arena/**`, Tags `v*`, PRs mit Codeänderungen, manuell | baut `BlenderBridge.exe`, **Smoke-Test der EXE**, ZIP-Paket, Artefakt |
-| `.github/workflows/release.yml` | Tag `v*` oder manuell mit Version | baut und veröffentlicht ein GitHub-Release mit ZIP |
+| `.github/workflows/build-windows.yml` | Push auf `main`/`arena/**`, PRs mit Codeänderungen, manuell | baut `BlenderBridge.exe`, **Smoke-Test der EXE**, ZIP-Paket, Artefakt – **kein** Release |
+| `.github/workflows/release.yml` | Tag `v*` oder manuell mit Version | dasselbe plus: veröffentlicht ein GitHub-Release mit ZIP |
 
 ### ci.yml im Detail
 
@@ -125,9 +125,10 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-Das startet `build-windows.yml` (baut + prüft + hängt die Dateien an ein
-Release, `softprops/action-gh-release`) und `release.yml` (eigenständiger
-Release-Lauf mit Versionseingabe).
+Das startet `release.yml` (baut, prüft die EXE, veröffentlicht das Release über
+`softprops/action-gh-release`). `build-windows.yml` bleibt für normale Pushes
+zuständig und erzeugt nur ein Artefakt – so gibt es pro Tag genau **einen**
+Release und keine Wettläufe.
 
 Manuell: Actions → *Release* → *Run workflow* → Version eingeben
 (`v0.1.1`).

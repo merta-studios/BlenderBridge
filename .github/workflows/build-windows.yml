@@ -1,11 +1,13 @@
+# Builds the Windows EXE, runs it once (smoke test) and uploads it as an
+# artifact.  Publishing a release is release.yml's job - one owner per concern.
 name: Build Windows EXE
 
 on:
   push:
     # "arena/**" lets development branches build the EXE too (the artifact is
-    # handy for testing a change before it lands on main).
+    # handy for testing a change before it lands on main).  A tag does not need
+    # to build here - release.yml does that and publishes the release.
     branches: ["main", "arena/**"]
-    tags: ["v*"]
   pull_request:
     paths:
       - "blenderbridge/**"
@@ -99,22 +101,3 @@ jobs:
             dist/blenderbridge_addon.zip
           if-no-files-found: error
           retention-days: 90
-
-      - name: Attach to a GitHub Release (tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            package/BlenderBridge-*-windows-x64.zip
-            dist/blenderbridge_addon.zip
-          generate_release_notes: true
-          body: |
-            Automatisch gebauter Windows-Build von BlenderBridge.
-
-            **So startest du:**
-            1. `BlenderBridge-*-windows-x64.zip` herunterladen und entpacken.
-            2. `BlenderBridge.exe` doppelklicken (Windows SmartScreen: „Weitere Informationen“ →
-               „Trotzdem ausführen“ – die EXE ist nicht signiert).
-            3. Der Browser öffnet die Oberfläche; im Fenster steht der Agent-Schlüssel.
-            4. `blenderbridge_addon.zip` in Blender installieren (Edit → Preferences →
-               Add-ons → Install…).
