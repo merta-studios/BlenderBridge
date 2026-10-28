@@ -93,8 +93,10 @@ def main() -> int:
     out.append("\n## Antwortformat\n")
     out.append("Jedes Werkzeug antwortet mit demselben Rahmen (siehe `docs/protocol.md`):\n")
     out.append("```json")
-    out.append('{\n  "ok": true,\n  "tool": "object.probe",\n  "request_id": "req_9f3...",\n'
-               '  "data": { ... },\n  "warnings": [],\n  "timing": {"ms": 12.4}\n}')
+    out.append('{\n  "job_id": "job-9f3ab12cd34ef56g",\n  "tool": "object.probe",\n'
+               '  "status": "succeeded",\n'
+               '  "result": {"object": "Palme", "dimensions": [4.1, 4.1, 8.0]},\n'
+               '  "warnings": [],\n  "assumptions": []\n}')
     out.append("```\n")
     out.append("Fehler:\n")
     out.append("```json")

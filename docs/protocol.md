@@ -273,7 +273,8 @@ Rahmenbedingungen:
 {"type": "event", "event": "progress", "job_id": "job_7c1a…", "percent": 40,
  "message": "Rendere Ansicht 2/8"}
 {"type": "event", "event": "scene_changed", "objects": ["Palme"]}
-{"type": "event", "event": "hello_ok", "info": {"blender_version": "4.2.0", …}}
+{"type": "event", "event": "hello_ok",
+ "info": {"blender_version": "4.2.0", "addon_version": "0.1.0"}}
 ```
 
 Ereignisse sind Hinweise für die Oberfläche (Fortschritt, „Nutzer hat die Szene

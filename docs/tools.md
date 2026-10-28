@@ -546,12 +546,12 @@ Jedes Werkzeug antwortet mit demselben Rahmen (siehe `docs/protocol.md`):
 
 ```json
 {
-  "ok": true,
+  "job_id": "job-9f3ab12cd34ef56g",
   "tool": "object.probe",
-  "request_id": "req_9f3...",
-  "data": { ... },
+  "status": "succeeded",
+  "result": {"object": "Palme", "dimensions": [4.1, 4.1, 8.0]},
   "warnings": [],
-  "timing": {"ms": 12.4}
+  "assumptions": []
 }
 ```
 
