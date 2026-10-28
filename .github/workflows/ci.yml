@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "arena/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ------------------------------------------------------------------ unit
+  unit-tests:
+    name: Unit tests (no Blender)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements-dev.txt
+      - name: Run tests
+        run: python -m pytest tests -q --ignore=tests/blender
+      - name: Self test of the installed program
+        run: python -m blenderbridge.app --selftest
+      - name: Build the Blender add-on zip
+        run: python tools/build_addon_zip.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blenderbridge-addon
+          path: dist/blenderbridge_addon.zip
+          if-no-files-found: error
+
+  # ------------------------------------------------------- real Blender (bpy)
+  blender-tests:
+    name: Blender 4.2 integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"     # bpy wheels exist for CPython 3.11
+      - name: Install Blender's system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxrender1 libxi6 libxkbcommon0 libxfixes3 libxxf86vm1 \
+            libgl1 libglx0 libegl1 libsm6 libice6 libxrandr2 libxinerama1 libxcursor1
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install "bpy==4.2.0"
+      - name: Run Blender integration tests
+        run: python -m pytest tests/blender -q -rs
+        env:
+          PYTHONUNBUFFERED: "1"
+      - name: Upload render output of the tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blender-test-renders
+          path: |
+            /**/preview_*.png
+          if-no-files-found: ignore
+          retention-days: 5
+
+  # ------------------------------------------------------------- windows smoke
+  windows-smoke:
+    name: Windows smoke test (source)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip; pip install -r requirements-dev.txt
+      - name: Run tests
+        run: python -m pytest tests -q --ignore=tests/blender
+      - name: Self test
+        run: python -m blenderbridge.app --selftest
+      - name: Build add-on zip on Windows
+        run: python tools/build_addon_zip.py

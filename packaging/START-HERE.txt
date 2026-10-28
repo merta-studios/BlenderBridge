@@ -1,0 +1,39 @@
+BlenderBridge - Kurzanleitung (Windows)
+=======================================
+
+1. Starten
+   Doppelklick auf "BlenderBridge.exe".
+   Es oeffnet sich ein schwarzes Fenster mit Statusmeldungen und parallel der
+   Browser mit der Oberflaeche (http://127.0.0.1:8765).
+   Das schwarze Fenster offen lassen - es ist das Programm.
+
+   Windows SmartScreen zeigt evtl. "Windows hat den Start dieser App
+   verhindert", weil die EXE nicht signiert ist:
+   -> "Weitere Informationen" -> "Trotzdem ausfuehren".
+
+2. Blender verbinden
+   Blender starten.
+   Edit -> Preferences -> Add-ons -> Install... -> "blenderbridge_addon.zip"
+   waehlen, dann das Haekchen bei "BlenderBridge" setzen.
+   Im 3D-Fenster "N" druecken, Reiter "BlenderBridge", Knopf "Server starten".
+   Im Browserfenster muss jetzt "Blender verbunden" stehen (gruener Punkt).
+
+3. Agent verbinden
+   Im Browser: Reiter "Verbindung & Agent".
+   Dort steht der gemeinsame Token und du kannst Agent-Schluessel erzeugen.
+   Ein Agent bekommt den Schluessel als HTTP-Header:
+       Authorization: Bearer <Schluessel>
+   und ruft http://127.0.0.1:8765/v1/... auf.
+
+4. Sicherheit
+   - Riskante Aktionen warten im Reiter "Freigaben" auf dein OK.
+   - "NOT-AUS" oben rechts stoppt alles sofort.
+   - Externer Zugang ist aus, bis du ihn einschaltest.
+   - Der Skript-Modus ist aus, bis du ihn in Blender UND im Connector erlaubst.
+
+5. Wenn etwas nicht klappt
+   Im schwarzen Fenster steht die Ursache.
+   Selbsttest:  BlenderBridge.exe --selftest
+   Konfiguration/Logs: %APPDATA%\BlenderBridge
+
+Vollstaendige Dokumentation: README.md
