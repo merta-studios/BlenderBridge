@@ -24,3 +24,6 @@ bb_local_config/
 bin/cloudflared
 bin/cloudflared.exe
 tools/cloudflared*
+
+# test logs written by tools/run_blender_tests.py
+blender-tests.log
