@@ -60,21 +60,7 @@ jobs:
           python -c "import bpy; print('Blender', bpy.app.version_string)"
       - name: Run Blender integration tests
         shell: bash
-        run: |
-          set -o pipefail
-          # -u keeps the output in the log even if Blender segfaults; -v shows
-          # which test was running when it happened.
-          python -u -m pytest tests/blender -v -rs --tb=short -p no:cacheprovider 2>&1 | tee blender-tests.log
-          status=${PIPESTATUS[0]}
-          echo "pytest exit code: $status"
-          if [ "$status" -ne 0 ]; then
-            # Emit the tail as annotations: downloading raw job logs is not
-            # always possible, and this keeps failures visible on the PR.
-            while IFS= read -r line; do
-              [ -n "$line" ] && echo "::error::$line"
-            done < <(tail -n 25 blender-tests.log)
-            exit "$status"
-          fi
+        run: python -u tools/run_blender_tests.py -- tests/blender -v -rs
         env:
           PYTHONUNBUFFERED: "1"
 
