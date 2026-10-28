@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BlenderBridge</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171c23; --panel2:#1e252e; --line:#2b3541;
+    --text:#e6edf3; --muted:#93a1b1; --accent:#4da3ff; --ok:#3fb950;
+    --warn:#d29922; --bad:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif}
+  a{color:var(--accent)}
+  code,pre{font-family:ui-monospace,Consolas,monospace;font-size:12.5px}
+  header{display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--panel);
+         border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10;flex-wrap:wrap}
+  .brand{font-weight:700;letter-spacing:.3px}
+  .brand small{color:var(--muted);font-weight:400;margin-left:6px}
+  .pills{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;align-items:center}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+        background:var(--panel2);border:1px solid var(--line);font-size:12.5px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)} .dot.warn{background:var(--warn)}
+  .dot.wait{background:var(--warn);animation:pulse 1.2s infinite}
+  @keyframes pulse{50%{opacity:.25}}
+  .panic{background:var(--bad);color:#fff;border:none;border-radius:8px;padding:8px 14px;
+         font-weight:700;cursor:pointer;letter-spacing:.4px}
+  .panic:hover{filter:brightness(1.1)}
+  nav{display:flex;gap:4px;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line);
+      overflow-x:auto;position:sticky;top:53px;z-index:9}
+  nav button{background:transparent;border:1px solid transparent;color:var(--muted);padding:6px 12px;
+             border-radius:8px;cursor:pointer;white-space:nowrap;font-size:13.5px}
+  nav button.active{color:var(--text);background:var(--panel2);border-color:var(--line)}
+  main{padding:16px;max-width:1180px;margin:0 auto}
+  section{display:none} section.active{display:block}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+  .card h2{margin:0 0 10px;font-size:15px;letter-spacing:.2px}
+  .card h3{margin:14px 0 6px;font-size:13.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+  .kv{display:grid;grid-template-columns:150px 1fr;gap:4px 10px;font-size:13px}
+  .kv div:nth-child(odd){color:var(--muted)}
+  .btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:7px 12px;
+       border-radius:8px;cursor:pointer;font-size:13px}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:#1b4f86;border-color:#2b6cb0}
+  .btn.ok{background:#17371f;border-color:#2ea043;color:#b7f0c4}
+  .btn.bad{background:#3d1719;border-color:#8b2d33;color:#ffc3c3}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+  tr:hover td{background:#1b222a}
+  .badge{font-size:11px;padding:2px 7px;border-radius:999px;border:1px solid var(--line);background:var(--panel2)}
+  .badge.read{color:#9ecbff;border-color:#274b70}
+  .badge.low{color:#a5e8b0;border-color:#2b5236}
+  .badge.moderate{color:#ffd479;border-color:#5c4a1c}
+  .badge.high{color:#ffb0a8;border-color:#6a2c26}
+  .badge.critical{color:#ff8b84;border-color:#8b2d33;background:#2a1416}
+  .tag{font-size:11px;padding:1px 6px;border-radius:6px;background:var(--panel2);color:var(--muted)}
+  .mono{font-family:ui-monospace,Consolas,monospace}
+  .muted{color:var(--muted)}
+  .small{font-size:12.2px}
+  .warnbox{border-left:3px solid var(--warn);background:#221c0e;padding:10px 12px;border-radius:8px;margin:10px 0;font-size:13px}
+  .badbox{border-left:3px solid var(--bad);background:#241214;padding:10px 12px;border-radius:8px;margin:10px 0;font-size:13px}
+  .okbox{border-left:3px solid var(--ok);background:#11251a;padding:10px 12px;border-radius:8px;margin:10px 0;font-size:13px}
+  input,select,textarea{background:var(--bg);border:1px solid var(--line);color:var(--text);
+        border-radius:8px;padding:7px 9px;font-size:13px;font-family:inherit}
+  textarea{width:100%;min-height:70px;font-family:ui-monospace,Consolas,monospace}
+  label.field{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted)}
+  img.preview{max-width:100%;border-radius:8px;border:1px solid var(--line);margin-top:6px}
+  pre.log{background:#0b0e12;border:1px solid var(--line);border-radius:8px;padding:10px;
+          max-height:280px;overflow:auto;white-space:pre-wrap;color:#c7d2de}
+  .jobhead{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  details summary{cursor:pointer;color:var(--muted)}
+  .spinner{width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);
+           border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .toast{position:fixed;right:16px;bottom:16px;background:var(--panel2);border:1px solid var(--line);
+         border-radius:10px;padding:10px 14px;font-size:13px;box-shadow:0 8px 24px #0008;z-index:50;
+         max-width:420px}
+  .toast.bad{border-color:var(--bad)} .toast.ok{border-color:var(--ok)}
+  @media (max-width:700px){ .kv{grid-template-columns:120px 1fr} main{padding:10px} }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">BlenderBridge <small id="ver"></small></div>
+  <div class="pills">
+    <span class="pill"><span class="dot" id="dot-connector"></span>Connector</span>
+    <span class="pill"><span class="dot" id="dot-blender"></span><span id="lbl-blender">Blender</span></span>
+    <span class="pill"><span class="dot" id="dot-external"></span><span id="lbl-external">Externer Zugang: aus</span></span>
+    <span class="pill" id="pill-approvals" style="display:none">🔔 <span id="lbl-approvals">0</span> Freigaben</span>
+  </div>
+  <button class="panic" id="btn-panic" title="Alle Aufträge abbrechen, Tunnel schließen, Vertrauensfenster beenden">NOT-AUS</button>
+</header>
+
+<nav>
+  <button data-tab="overview" class="active">Übersicht</button>
+  <button data-tab="approvals">Freigaben <span id="nav-approvals"></span></button>
+  <button data-tab="history">Verlauf</button>
+  <button data-tab="tools">Werkzeuge</button>
+  <button data-tab="connect">Verbindung &amp; Agent</button>
+  <button data-tab="settings">Einstellungen</button>
+  <button data-tab="help">Hilfe</button>
+</nav>
+
+<main>
+  <!-- ------------------------------------------------------------- overview -->
+  <section id="tab-overview" class="active">
+    <div class="card">
+      <h2>Status</h2>
+      <div class="grid">
+        <div class="kv">
+          <div>Connector</div><div id="ov-connector">–</div>
+          <div>Blender</div><div id="ov-blender">–</div>
+          <div>Blender-Datei</div><div id="ov-file" class="mono small">–</div>
+          <div>Add-on Version</div><div id="ov-addonver">–</div>
+          <div>Latenz</div><div id="ov-latency">–</div>
+        </div>
+        <div class="kv">
+          <div>Warteschlange</div><div id="ov-queue">–</div>
+          <div>Läuft gerade</div><div id="ov-running" class="mono small">–</div>
+          <div>Offene Freigaben</div><div id="ov-approvals">–</div>
+          <div>Externer Zugang</div><div id="ov-tunnel">–</div>
+          <div>Relay</div><div id="ov-relay">–</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="card-approval-quick" style="display:none">
+      <h2>Es wartet eine Freigabe</h2>
+      <div id="quick-approval"></div>
+    </div>
+
+    <div class="card">
+      <h2>Externer Zugang</h2>
+      <p class="small muted" style="margin-top:0">
+        Standardmäßig aus. Wenn du ihn einschaltest, ist die API über eine öffentliche
+        Cloudflare-Adresse erreichbar – jeder Aufruf braucht trotzdem einen Agent-Schlüssel.
+      </p>
+      <div class="row">
+        <button class="btn primary" id="btn-tunnel-on">Einschalten</button>
+        <button class="btn" id="btn-tunnel-off">Ausschalten</button>
+        <button class="btn" id="btn-tunnel-check">cloudflared prüfen</button>
+        <span id="tunnel-url" class="mono small"></span>
+      </div>
+      <div id="tunnel-box"></div>
+    </div>
+
+    <div class="card">
+      <h2>Letzte Aktivitäten</h2>
+      <div id="ov-recent" class="small"></div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ approvals -->
+  <section id="tab-approvals">
+    <div class="card">
+      <h2>Offene Freigaben</h2>
+      <p class="small muted" style="margin-top:0">
+        Aktionen ab Risikostufe „<span id="thr-label">moderate</span>“ warten hier auf dein Ja.
+        Nichts wird ausgeführt, bevor du bestätigst.
+      </p>
+      <div class="row" style="margin-bottom:10px">
+        <button class="btn ok" id="btn-trust">2 Minuten alles erlauben</button>
+        <button class="btn" id="btn-trust-off">Vertrauensfenster beenden</button>
+        <span class="muted small" id="trust-status"></span>
+      </div>
+      <div id="approvals-list"></div>
+    </div>
+  </section>
+
+  <!-- -------------------------------------------------------------- history -->
+  <section id="tab-history">
+    <div class="card">
+      <h2>Verlauf</h2>
+      <div class="row" style="margin-bottom:10px">
+        <button class="btn" id="btn-refresh-history">Aktualisieren</button>
+        <label class="field" style="flex-direction:row;align-items:center;gap:6px">
+          <input type="checkbox" id="chk-autorefresh" checked> automatisch
+        </label>
+      </div>
+      <div id="history-list" class="small">–</div>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- tools -->
+  <section id="tab-tools">
+    <div class="card">
+      <h2>Werkzeuge</h2>
+      <p class="small muted" style="margin-top:0">
+        Diese Liste ist die vollständige Schnittstelle. Ein Agent kann nur diese Aktionen
+        auslösen – es gibt keinen versteckten Befehlskanal. Risikostufen bestimmen, wann
+        eine Freigabe nötig ist.
+      </p>
+      <div class="row" style="margin-bottom:10px">
+        <input id="tool-filter" placeholder="Filter…" style="flex:1;min-width:180px">
+      </div>
+      <div id="tools-list"></div>
+    </div>
+  </section>
+
+  <!-- -------------------------------------------------------------- connect -->
+  <section id="tab-connect">
+    <div class="card">
+      <h2>Blender verbinden</h2>
+      <ol class="small">
+        <li>In Blender: <b>Bearbeiten → Einstellungen → Add-ons → Installieren…</b> und die
+            Datei <span class="mono">blenderbridge_addon.zip</span> wählen.</li>
+        <li>Add-on „BlenderBridge“ aktivieren.</li>
+        <li>Im 3D-Fenster <b>N</b> drücken → Reiter <b>BlenderBridge</b> → <b>Server starten</b>.</li>
+      </ol>
+      <div class="kv">
+        <div>Add-on-Port</div><div class="mono" id="cfg-addon-port">–</div>
+        <div>Gemeinsamer Token</div><div class="mono small" id="cfg-addon-token">–</div>
+      </div>
+      <p class="small muted">Der Token wird automatisch zwischen Connector und Add-on geteilt
+        (Datei im Konfigurationsordner). Falls die Verbindung nicht klappt, Token kopieren und
+        im Add-on-Panel einfügen.</p>
+      <div class="row">
+        <button class="btn" id="btn-copy-token">Token kopieren</button>
+        <button class="btn" id="btn-recheck">Verbindung neu prüfen</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Agent-Schlüssel</h2>
+      <p class="small muted" style="margin-top:0">
+        Ein Agent braucht einen Schlüssel im Header <span class="mono">Authorization: Bearer …</span>.
+        Schlüssel werden nur einmal angezeigt und gehasht gespeichert.
+      </p>
+      <div class="row">
+        <input id="key-label" placeholder="Bezeichnung, z. B. Claude" value="agent">
+        <button class="btn primary" id="btn-new-key">Neuen Schlüssel erzeugen</button>
+      </div>
+      <div id="new-key-box"></div>
+      <div id="keys-list" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <h2>Relay (für Agenten ohne direkten Netzzugriff)</h2>
+      <p class="small muted" style="margin-top:0">
+        Manche Agenten können nur GitHub erreichen. Dann arbeitet der Connector als Postfach:
+        Anfragen liegen als Kommentare in einem Issue, Ergebnisse kommen als Antwort zurück.
+        Die Inhalte sind zusätzlich verschlüsselt. Details in <span class="mono">docs/relay.md</span>.
+      </p>
+      <div class="grid">
+        <label class="field">Repository (owner/name)<input id="relay-repo" placeholder="user/mein-repo"></label>
+        <label class="field">Issue-Nummer<input id="relay-issue" type="number" min="1" placeholder="3"></label>
+        <label class="field">GitHub-Token (nur Issues-Recht)<input id="relay-token" type="password" placeholder="github_pat_…"></label>
+        <label class="field">Abfrageintervall (Sekunden)<input id="relay-interval" type="number" min="2" value="4"></label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="btn-relay-save">Speichern</button>
+        <button class="btn" id="btn-relay-test">Verbindung testen</button>
+        <button class="btn primary" id="btn-relay-start">Relay starten</button>
+        <button class="btn" id="btn-relay-stop">Relay stoppen</button>
+        <button class="btn" id="btn-relay-secret">Geheimnis anzeigen/erneuern</button>
+      </div>
+      <div id="relay-status" class="small" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------- settings -->
+  <section id="tab-settings">
+    <div class="card">
+      <h2>Sicherheit</h2>
+      <div class="grid">
+        <label class="field">Freigabe ab Risikostufe
+          <select id="set-threshold">
+            <option value="read">read – alles bestätigen</option>
+            <option value="low">low – alles ab „fügt hinzu“</option>
+            <option value="moderate">moderate – Änderungen an Bestehendem (empfohlen)</option>
+            <option value="high">high – nur Löschen/Skripte</option>
+            <option value="critical">critical – nur Skripte</option>
+            <option value="never">never – keine Freigaben (nicht empfohlen)</option>
+          </select>
+        </label>
+        <label class="field">Freigabe läuft ab nach (Sekunden)
+          <input id="set-approval-timeout" type="number" min="30" max="3600"></label>
+        <label class="field">Sicherung vor Änderungen
+          <select id="set-snapshot">
+            <option value="true">immer (empfohlen)</option>
+            <option value="false">aus</option>
+          </select>
+        </label>
+        <label class="field">Max. Anfragen pro Minute
+          <input id="set-rate" type="number" min="10" max="600"></label>
+      </div>
+      <h3>Erweiterter Modus</h3>
+      <label class="row small"><input type="checkbox" id="set-script">
+        Skript-Modus (script.run) erlauben – führt beliebigen Python-Code in Blender aus</label>
+      <label class="row small"><input type="checkbox" id="set-script-approval">
+        Skript-Modus immer bestätigen (empfohlen)</label>
+      <div class="badbox small">
+        Der Skript-Modus ist mächtig und gefährlich: er kann Dateien lesen/schreiben und
+        Programme starten, soweit Blender das darf. Er ist standardmäßig freigabepflichtig und
+        wird vollständig protokolliert. Nur einschalten, wenn du dem Agenten vertraust.
+      </div>
+      <h3>Darstellung / Logs</h3>
+      <div class="grid">
+        <label class="field">Aufbewahrte Aufträge<input id="set-keep" type="number" min="50" max="5000"></label>
+        <label class="field">Vorschaubild max. Pixel<input id="set-preview" type="number" min="128" max="2048"></label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" id="btn-save-settings">Speichern</button>
+        <button class="btn" id="btn-reload">Neu laden</button>
+      </div>
+      <div id="settings-msg" class="small"></div>
+    </div>
+
+    <div class="card">
+      <h2>Protokoll</h2>
+      <div class="row" style="margin-bottom:8px">
+        <button class="btn" id="btn-load-logs">Letzte Einträge laden</button>
+      </div>
+      <pre class="log" id="log-box">–</pre>
+    </div>
+
+    <div class="card">
+      <h2>Gefahrenzone</h2>
+      <p class="small muted">Setzt alle Aufträge zurück, beendet das Vertrauensfenster und
+        optional alle Agent-Schlüssel. Danach muss ein Agent neu autorisiert werden.</p>
+      <div class="row">
+        <button class="btn bad" id="btn-panic2">NOT-AUS inkl. Schlüssel sperren</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ----------------------------------------------------------------- help -->
+  <section id="tab-help">
+    <div class="card">
+      <h2>So funktioniert es</h2>
+      <ol class="small">
+        <li><b>Connector</b> (dieses Fenster) spricht mit Blender über <span class="mono">127.0.0.1</span>.</li>
+        <li><b>Add-on</b> führt Aktionen in Blenders Haupt-Thread aus und schickt Ergebnisse zurück.</li>
+        <li><b>Agent</b> ruft die API mit seinem Schlüssel auf, sieht den Werkzeugkatalog und
+            bekommt JSON-Antworten plus Vorschaubilder.</li>
+        <li>Riskante Aktionen bleiben hier stehen, bis du sie bestätigst.</li>
+      </ol>
+      <h3>Minimalbeispiel für einen Agenten</h3>
+<pre class="log">curl -s http://127.0.0.1:PORT/v1/tools \
+  -H "Authorization: Bearer DEIN_SCHLUESSEL"
+
+curl -s -X POST http://127.0.0.1:PORT/v1/jobs \
+  -H "Authorization: Bearer DEIN_SCHLUESSEL" \
+  -H "X-BB-Client: 1" -H "Content-Type: application/json" \
+  -d '{"tool":"scene.info","params":{}}'
+
+# Ergebnis abholen (wait=20 wartet bis zu 20 s)
+curl -s "http://127.0.0.1:PORT/v1/jobs/JOB_ID?wait=20" \
+  -H "Authorization: Bearer DEIN_SCHLUESSEL"</pre>
+      <h3>Wenn etwas klemmt</h3>
+      <ul class="small">
+        <li><b>Blender nicht verbunden</b> – Add-on aktiv? „Server starten“ geklickt? Port 9876 frei?</li>
+        <li><b>Token falsch</b> – Token auf dem Reiter „Verbindung &amp; Agent“ kopieren und im Add-on einfügen.</li>
+        <li><b>Keine Vorschaubilder</b> – Blender braucht eine Kamera oder das Add-on legt eine temporäre an;
+            prüfe den Job-Fehler im Verlauf.</li>
+        <li><b>Externer Zugang geht nicht</b> – Netzwerk blockiert ausgehende Tunnel; nutze den Relay-Weg.</li>
+      </ul>
+      <h3>Grenzen (ehrlich)</h3>
+      <ul class="small">
+        <li>Das Programm erkennt nicht automatisch, was „die Wange“ eines fremden Modells ist – du
+            oder der Agent legt Bereiche an (Auswahl, Box, Kugel, Höhenband).</li>
+        <li>Nach starken Topologieänderungen können gespeicherte Bereiche veralten; das Add-on meldet
+            das und bietet eine Reparatur an.</li>
+        <li>Eine Wiederherstellung ist nur so gut wie die letzte Sicherung.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<script>
+const BOOT = __BB_BOOTSTRAP__;
+const TOKEN = BOOT.token;
+let STATE = BOOT.status || {};
+let TOOLS = BOOT.tools || [];
+let CURRENT_TAB = 'overview';
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtBytes = (n) => n > 1048576 ? (n/1048576).toFixed(1)+' MB' : n > 1024 ? Math.round(n/1024)+' KB' : (n||0)+' B';
+const shortTime = (iso) => iso ? iso.replace('T',' ').replace('Z','') : '–';
+
+function toast(msg, kind='') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + kind;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 4200);
+}
+
+async function api(path, opts = {}) {
+  const headers = Object.assign({'X-BB-Token': TOKEN, 'X-BB-Client': '1'}, opts.headers || {});
+  if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
+  const res = await fetch(path, {
+    method: opts.method || 'GET',
+    headers,
+    body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+    credentials: 'same-origin',
+  });
+  let data = null;
+  const text = await res.text();
+  try { data = text ? JSON.parse(text) : null; } catch (e) { data = {raw: text}; }
+  if (!res.ok) {
+    const err = (data && data.error) || {};
+    throw new Error(err.message || ('HTTP ' + res.status));
+  }
+  return data;
+}
+
+/* ------------------------------------------------------------------ status */
+function setDot(id, cls) { const el = $(id); if (el) el.className = 'dot ' + cls; }
+
+function renderStatus(st) {
+  STATE = st;
+  $('ver').textContent = 'v' + st.version;
+  setDot('dot-connector', 'ok');
+  const b = st.blender || {};
+  setDot('dot-blender', b.connected ? 'ok' : 'bad');
+  $('lbl-blender').textContent = b.connected ? 'Blender verbunden' : 'Blender getrennt';
+  $('ov-connector').innerHTML = '<span class="tag">läuft</span> Port ' + esc(location.port || '') +
+      ' · seit ' + Math.floor((st.uptime_s||0)/60) + ' min';
+  $('ov-blender').innerHTML = b.connected
+      ? '<span class="tag">verbunden</span> ' + esc(b.blender_version || '')
+      : '<span class="tag">getrennt</span> <span class="muted">' + esc(b.last_error || 'Add-on starten') + '</span>';
+  $('ov-file').textContent = b.file || '–';
+  $('ov-addonver').textContent = (b.addon_version || '–') + (b.platform ? ' · ' + b.platform : '');
+  $('ov-latency').textContent = b.latency_ms != null ? b.latency_ms + ' ms' : '–';
+  const j = st.jobs || {};
+  $('ov-queue').textContent = (j.queue_length ?? 0) + ' wartend';
+  $('ov-running').textContent = j.running || '–';
+  const approvals = st.approvals || [];
+  $('ov-approvals').textContent = approvals.length;
+  $('pill-approvals').style.display = approvals.length ? 'inline-flex' : 'none';
+  $('lbl-approvals').textContent = approvals.length;
+  $('nav-approvals').textContent = approvals.length ? '(' + approvals.length + ')' : '';
+  $('thr-label').textContent = (st.policy||{}).threshold || 'moderate';
+  $('trust-status').textContent = (st.policy||{}).trust_seconds_left
+      ? 'Vertrauensfenster aktiv: noch ' + st.policy.trust_seconds_left + ' s'
+      : '';
+  const t = st.tunnel || {};
+  setDot('dot-external', t.state === 'running' ? 'warn' : (t.state === 'error' ? 'bad' : ''));
+  $('lbl-external').textContent = t.state === 'running' ? 'Externer Zugang: AN' :
+      (t.state === 'error' ? 'Externer Zugang: Fehler' : 'Externer Zugang: aus');
+  $('ov-tunnel').innerHTML = t.state === 'running'
+      ? '<span class="badge high">öffentlich</span> <span class="mono small">' + esc(t.url) + '</span>'
+      : esc(t.state || 'aus');
+  $('tunnel-url').textContent = t.url || '';
+  renderTunnelBox(t);
+  const r = st.relay || {};
+  $('ov-relay').textContent = r.enabled ? (r.state + (r.repo ? ' · ' + r.repo : '')) : 'aus';
+  renderApprovalsInline(approvals);
+  $('cfg-addon-port').textContent = (st.config||{}).addon_port ?? '–';
+  $('cfg-addon-token').textContent = BOOT.addon_token || '–';
+}
+
+function renderTunnelBox(t) {
+  const box = $('tunnel-box');
+  if (!t || t.state === 'disabled' || t.state === 'stopped') { box.innerHTML = ''; return; }
+  let html = '';
+  if (t.state === 'running') {
+    html += '<div class="warnbox">Diese URL ist <b>öffentlich</b>: <span class="mono">' + esc(t.url) +
+            '</span><br>Ohne gültigen Agent-Schlüssel passiert nichts – aber die Adresse ist sichtbar. ' +
+            'Nach der Arbeit ausschalten.</div>';
+  } else if (t.state === 'error') {
+    html += '<div class="badbox">' + esc(t.error || 'Unbekannter Fehler') + '</div>';
+  }
+  if (t.health && t.health.detail) {
+    html += '<div class="warnbox">Selbsttest der URL: ' + esc(t.health.detail) + '</div>';
+  }
+  if (t.logs && t.logs.length) {
+    html += '<details><summary class="small">cloudflared-Protokoll</summary><pre class="log">' +
+            esc(t.logs.slice(-12).join('\n')) + '</pre></details>';
+  }
+  box.innerHTML = html;
+}
+
+/* --------------------------------------------------------------- approvals */
+function riskBadge(risk) { return '<span class="badge ' + esc(risk) + '">' + esc(risk) + '</span>'; }
+
+function approvalCard(a) {
+  return '<div class="card" style="background:var(--panel2)">' +
+    '<div class="jobhead">' + riskBadge(a.risk) +
+    '<b class="mono">' + esc(a.tool) + '</b>' +
+    '<span class="muted small">' + esc(a.summary || '') + '</span>' +
+    '<span class="tag">' + a.seconds_left + ' s</span></div>' +
+    '<div class="small" style="margin:8px 0">' + esc(a.reason || '') + '</div>' +
+    (a.note ? '<div class="small muted">Notiz des Agenten: ' + esc(a.note) + '</div>' : '') +
+    '<details><summary class="small">Parameter ansehen</summary><pre class="log">' +
+      esc(JSON.stringify(a.params_preview, null, 2)) + '</pre></details>' +
+    '<div class="row" style="margin-top:10px">' +
+      '<button class="btn ok" data-approve="' + esc(a.job_id) + '">Erlauben</button>' +
+      '<button class="btn bad" data-deny="' + esc(a.job_id) + '">Ablehnen</button>' +
+      '<span class="muted small mono">' + esc(a.job_id) + '</span>' +
+    '</div></div>';
+}
+
+function renderApprovalsInline(list) {
+  const quick = $('card-approval-quick');
+  const box = $('quick-approval');
+  if (!list.length) { quick.style.display = 'none'; box.innerHTML = ''; return; }
+  quick.style.display = 'block';
+  box.innerHTML = approvalCard(list[0]) + (list.length > 1
+      ? '<div class="small muted">… und ' + (list.length - 1) + ' weitere auf dem Reiter „Freigaben“</div>' : '');
+  const all = $('approvals-list');
+  all.innerHTML = list.map(approvalCard).join('');
+  bindApprovalButtons();
+}
+
+async function loadApprovals() {
+  try {
+    const data = await api('/v1/approvals');
+    renderApprovalsInline(data.approvals || []);
+  } catch (e) { /* offline */ }
+}
+
+function bindApprovalButtons() {
+  document.querySelectorAll('[data-approve]').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    try { await api('/v1/jobs/' + b.dataset.approve + '/approve', {method:'POST', body:{reason:'im Fenster bestätigt'}});
+          toast('Freigegeben', 'ok'); refresh(); }
+    catch (e) { toast('Fehler: ' + e.message, 'bad'); b.disabled = false; }
+  });
+  document.querySelectorAll('[data-deny]').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    try { await api('/v1/jobs/' + b.dataset.deny + '/deny', {method:'POST', body:{reason:'im Fenster abgelehnt'}});
+          toast('Abgelehnt'); refresh(); }
+    catch (e) { toast('Fehler: ' + e.message, 'bad'); b.disabled = false; }
+  });
+}
+
+/* ----------------------------------------------------------------- history */
+function jobRow(j) {
+  const statusClass = j.status === 'succeeded' ? 'ok' : (j.status === 'failed' || j.status === 'denied' ? 'bad' : '');
+  let detail = '';
+  if (j.error) detail += '<div class="badbox small"><b>' + esc(j.error.code) + ':</b> ' + esc(j.error.message) + '</div>';
+  if (j.assumptions && j.assumptions.length)
+    detail += '<div class="warnbox small"><b>Annahmen:</b><br>' + j.assumptions.map(esc).join('<br>') + '</div>';
+  if (j.warnings && j.warnings.length)
+    detail += '<div class="warnbox small"><b>Warnungen:</b><br>' + j.warnings.map(esc).join('<br>') + '</div>';
+  if (j.result !== null && j.result !== undefined)
+    detail += '<details><summary class="small">Ergebnis (JSON)</summary><pre class="log">' +
+              esc(JSON.stringify(j.result, null, 2).slice(0, 8000)) + '</pre></details>';
+  if (j.artifacts && j.artifacts.length) {
+    detail += '<div class="row" style="margin-top:6px">';
+    j.artifacts.forEach(a => {
+      if (a.kind === 'image') {
+        detail += '<img class="preview" src="' + esc(a.url) + '" alt="' + esc(a.name) + '">';
+      } else {
+        detail += '<a class="tag" href="' + esc(a.url) + '">' + esc(a.name) + ' (' + fmtBytes(a.bytes) + ')</a>';
+      }
+    });
+    detail += '</div>';
+  }
+  return '<div class="card" style="background:var(--panel2);margin-bottom:8px">' +
+    '<div class="jobhead"><span class="badge ' + statusClass + '">' + esc(j.status) + '</span>' +
+    riskBadge(j.risk) + '<b class="mono">' + esc(j.tool) + '</b>' +
+    '<span class="muted small">' + shortTime(j.created_at) + '</span>' +
+    (j.duration_ms ? '<span class="tag">' + j.duration_ms + ' ms</span>' : '') +
+    '<span class="mono small muted" style="margin-left:auto">' + esc(j.job_id) + '</span></div>' +
+    (j.note ? '<div class="small muted">Notiz: ' + esc(j.note) + '</div>' : '') +
+    detail + '</div>';
+}
+
+async function loadHistory() {
+  try {
+    const data = await api('/v1/jobs?limit=40');
+    const jobs = data.jobs || [];
+    $('history-list').innerHTML = jobs.length ? jobs.map(jobRow).join('') : '<span class="muted">noch keine Aufträge</span>';
+    const running = jobs.filter(j => ['queued','running','pending_approval'].includes(j.status));
+    $('ov-recent').innerHTML = jobs.slice(0, 5).map(j =>
+      '<div>' + shortTime(j.created_at) + ' · <span class="mono">' + esc(j.tool) + '</span> · ' +
+      esc(j.status) + '</div>').join('') || '<span class="muted">–</span>';
+    return running.length;
+  } catch (e) { return 0; }
+}
+
+/* ------------------------------------------------------------------- tools */
+function renderTools(filter = '') {
+  const f = filter.toLowerCase();
+  const rows = TOOLS.filter(t => !f || t.name.toLowerCase().includes(f) || t.summary.toLowerCase().includes(f));
+  $('tools-list').innerHTML = '<table><thead><tr><th>Werkzeug</th><th>Risiko</th><th>Beschreibung</th><th>Parameter</th></tr></thead><tbody>' +
+    rows.map(t => '<tr><td class="mono">' + esc(t.name) + '</td><td>' + riskBadge(t.risk) +
+      (t.mutating ? ' <span class="tag">ändert</span>' : '') + '</td><td class="small">' + esc(t.summary) +
+      '</td><td class="small muted mono">' + esc(t.params || '') + '</td></tr>').join('') +
+    '</tbody></table>';
+}
+
+/* ------------------------------------------------------------------- keys */
+async function loadKeys() {
+  try {
+    const data = await api('/v1/keys');
+    const rows = (data.keys || []).map(k =>
+      '<tr><td class="mono">' + esc(k.key_id) + '</td><td>' + esc(k.label) + '</td>' +
+      '<td>' + (k.revoked ? '<span class="badge high">gesperrt</span>' : '<span class="badge low">aktiv</span>') + '</td>' +
+      '<td class="small">' + (k.uses || 0) + ' Aufrufe</td>' +
+      '<td>' + (k.revoked ? '' : '<button class="btn bad" data-revoke="' + esc(k.key_id) + '">sperren</button>') + '</td></tr>');
+    $('keys-list').innerHTML = rows.length
+      ? '<table><thead><tr><th>ID</th><th>Bezeichnung</th><th>Status</th><th>Nutzung</th><th></th></tr></thead><tbody>' +
+        rows.join('') + '</tbody></table>'
+      : '<span class="muted small">keine Schlüssel</span>';
+    document.querySelectorAll('[data-revoke]').forEach(b => b.onclick = async () => {
+      if (!confirm('Schlüssel wirklich sperren? Der Agent kann dann nicht mehr zugreifen.')) return;
+      try { await api('/v1/keys/' + b.dataset.revoke, {method:'DELETE'}); toast('Schlüssel gesperrt', 'ok'); loadKeys(); }
+      catch (e) { toast(e.message, 'bad'); }
+    });
+  } catch (e) { $('keys-list').textContent = '–'; }
+}
+
+/* --------------------------------------------------------------- settings */
+function fillSettings(cfg) {
+  $('set-threshold').value = cfg.approval_threshold;
+  $('set-approval-timeout').value = cfg.approval_timeout_s;
+  $('set-snapshot').value = String(!!cfg.snapshot_before_risky);
+  $('set-rate').value = cfg.rate_limit_per_min;
+  $('set-script').checked = !!cfg.allow_script_mode;
+  $('set-script-approval').checked = !!cfg.script_requires_approval;
+  $('set-keep').value = cfg.keep_jobs;
+  $('set-preview').value = cfg.preview_max_px;
+  $('relay-repo').value = cfg.relay_repo || '';
+  $('relay-issue').value = cfg.relay_issue || '';
+  $('relay-interval').value = cfg.relay_interval_s || 4;
+}
+
+/* ------------------------------------------------------------------ events */
+document.querySelectorAll('nav button').forEach(btn => btn.onclick = () => {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b === btn));
+  const tab = btn.dataset.tab;
+  CURRENT_TAB = tab;
+  document.querySelectorAll('main section').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
+  if (tab === 'history') loadHistory();
+  if (tab === 'tools') renderTools($('tool-filter').value);
+  if (tab === 'connect') loadKeys();
+  if (tab === 'approvals') loadApprovals();
+});
+
+$('btn-panic').onclick = async () => {
+  if (!confirm('NOT-AUS: alle laufenden und wartenden Aufträge abbrechen, Tunnel schließen, Vertrauensfenster beenden?')) return;
+  try {
+    const res = await api('/v1/panic', {method:'POST', body:{stop_tunnel:true}});
+    toast('NOT-AUS ausgeführt: ' + JSON.stringify(res.actions), 'ok');
+    refresh();
+  } catch (e) { toast('Fehler: ' + e.message, 'bad'); }
+};
+$('btn-panic2').onclick = async () => {
+  if (!confirm('NOT-AUS und ALLE Agent-Schlüssel sperren?')) return;
+  try {
+    const res = await api('/v1/panic', {method:'POST', body:{stop_tunnel:true, revoke_keys:true}});
+    toast('Ausgeführt. Schlüssel gesperrt: ' + (res.actions.keys_revoked || 0), 'ok');
+    loadKeys(); refresh();
+  } catch (e) { toast(e.message, 'bad'); }
+};
+
+$('btn-tunnel-on').onclick = async () => {
+  try {
+    toast('Tunnel wird gestartet …');
+    await api('/v1/tunnel', {method:'POST', body:{action:'start'}});
+    refresh();
+  } catch (e) { toast('Tunnel-Fehler: ' + e.message, 'bad'); }
+};
+$('btn-tunnel-off').onclick = async () => {
+  try { await api('/v1/tunnel', {method:'POST', body:{action:'stop'}}); toast('Tunnel gestoppt', 'ok'); refresh(); }
+  catch (e) { toast(e.message, 'bad'); }
+};
+$('btn-tunnel-check').onclick = async () => {
+  try {
+    const data = await api('/v1/tunnel');
+    const b = (data.tunnel && data.tunnel.binary_status) || {};
+    if (b.found) {
+      toast('cloudflared gefunden: ' + b.path + '  (Version ' + (b.version || '?') + ')', 'ok');
+    } else {
+      toast(b.hint || 'cloudflared nicht gefunden. Siehe README, Abschnitt Externer Zugang.', 'bad');
+    }
+    $('tunnel-box').innerHTML = '<pre class="log">' + esc(JSON.stringify(b, null, 2)) + '</pre>';
+  } catch (e) { toast(e.message, 'bad'); }
+};
+$('btn-trust').onclick = async () => {
+  try { const r = await api('/v1/trust', {method:'POST', body:{seconds:120}});
+        toast('Vertrauensfenster aktiv: ' + r.trust_seconds_left + ' s', 'ok'); refresh(); }
+  catch (e) { toast(e.message, 'bad'); }
+};
+$('btn-trust-off').onclick = async () => {
+  try { await api('/v1/trust', {method:'DELETE'}); toast('Vertrauensfenster beendet', 'ok'); refresh(); }
+  catch (e) { toast(e.message, 'bad'); }
+};
+$('btn-refresh-history').onclick = () => loadHistory();
+$('chk-autorefresh').onchange = () => {};
+$('tool-filter').oninput = (e) => renderTools(e.target.value);
+
+$('btn-copy-token').onclick = async () => {
+  try { await navigator.clipboard.writeText($('cfg-addon-token').textContent.trim());
+        toast('Token kopiert', 'ok'); } catch (e) { toast('Kopieren nicht möglich – bitte manuell markieren', 'bad'); }
+};
+$('btn-recheck').onclick = async () => { await refresh(); toast(STATE.blender && STATE.blender.connected ? 'Blender ist verbunden' : 'Noch nicht verbunden', STATE.blender && STATE.blender.connected ? 'ok' : 'bad'); };
+
+$('btn-new-key').onclick = async () => {
+  try {
+    const data = await api('/v1/keys', {method:'POST', body:{label: $('key-label').value || 'agent'}});
+    $('new-key-box').innerHTML = '<div class="okbox"><b>Neuer Schlüssel – jetzt kopieren:</b>' +
+      '<pre class="log" id="new-key-value">' + esc(data.key) + '</pre>' +
+      '<button class="btn" id="btn-copy-new">Kopieren</button></div>';
+    $('btn-copy-new').onclick = () => navigator.clipboard.writeText(data.key).then(
+        () => toast('Schlüssel kopiert', 'ok'), () => toast('Bitte manuell kopieren', 'bad'));
+    loadKeys();
+  } catch (e) { toast(e.message, 'bad'); }
+};
+
+$('btn-save-settings').onclick = async () => {
+  const body = {
+    approval_threshold: $('set-threshold').value,
+    approval_timeout_s: Number($('set-approval-timeout').value),
+    snapshot_before_risky: $('set-snapshot').value === 'true',
+    rate_limit_per_min: Number($('set-rate').value),
+    allow_script_mode: $('set-script').checked,
+    script_requires_approval: $('set-script-approval').checked,
+    keep_jobs: Number($('set-keep').value),
+    preview_max_px: Number($('set-preview').value),
+  };
+  try { await api('/v1/config', {method:'POST', body});
+        $('settings-msg').innerHTML = '<span class="tag">gespeichert</span>';
+        toast('Einstellungen gespeichert', 'ok'); refresh(); }
+  catch (e) { toast(e.message, 'bad'); }
+};
+$('btn-reload').onclick = () => refresh();
+$('btn-load-logs').onclick = async () => {
+  try {
+    const data = await api('/v1/logs?limit=120');
+    const lines = (data.audit || []).map(a => JSON.stringify(a)).concat(
+      (data.debug || []).map(d => '[debug] ' + d));
+    $('log-box').textContent = lines.join('\n') || 'keine Einträge';
+  } catch (e) { $('log-box').textContent = e.message; }
+};
+
+$('btn-relay-save').onclick = async () => {
+  const token = $('relay-token').value.trim();
+  try {
+    await api('/v1/config', {method:'POST', body:{
+      relay_repo: $('relay-repo').value.trim(),
+      relay_issue: Number($('relay-issue').value) || 0,
+      relay_interval_s: Number($('relay-interval').value) || 4,
+    }});
+    if (token) {
+      // token goes through the settings endpoint as a secret-only field
+      await api('/v1/config', {method:'POST', body:{relay_token: token}});
+    }
+    toast('Relay-Konfiguration gespeichert', 'ok');
+    $('relay-token').value = '';
+    loadKeys();
+  } catch (e) { toast(e.message, 'bad'); }
+};
+$('btn-relay-test').onclick = async () => {
+  try { const r = await api('/v1/relay', {method:'POST', body:{action:'test'}});
+        toast(r.ok ? ('GitHub OK als ' + r.user) : ('Fehler: ' + (r.error || '')), r.ok ? 'ok' : 'bad'); }
+  catch (e) { toast(e.message, 'bad'); }
+};
+$('btn-relay-start').onclick = async () => {
+  try { const r = await api('/v1/relay', {method:'POST', body:{action:'start'}});
+        toast('Relay: ' + (r.relay ? r.relay.state : 'gestartet'), 'ok'); refresh(); }
+  catch (e) { toast(e.message, 'bad'); }
+};
+$('btn-relay-stop').onclick = async () => {
+  try { await api('/v1/relay', {method:'POST', body:{action:'stop'}}); toast('Relay gestoppt', 'ok'); refresh(); }
+  catch (e) { toast(e.message, 'bad'); }
+};
+$('btn-relay-secret').onclick = async () => {
+  if (!confirm('Neues Relay-Geheimnis erzeugen? Der Agent braucht dann das neue Geheimnis.')) return;
+  try { const r = await api('/v1/relay', {method:'POST', body:{action:'rotate_secret'}});
+        $('relay-status').innerHTML = '<div class="okbox">Geheimnis (nur jetzt sichtbar):<pre class="log">' +
+          esc(r.secret) + '</pre></div>'; }
+  catch (e) { toast(e.message, 'bad'); }
+};
+
+/* ------------------------------------------------------------------ loop */
+let pollTimer = null;
+async function refresh() {
+  try {
+    const st = await api('/v1/status');
+    renderStatus(st);
+    if (!$('relay-repo').value && st.config && st.config.relay_repo) fillSettings(st.config);
+    if (!$('set-threshold').value) fillSettings(st.config);
+  } catch (e) {
+    setDot('dot-connector', 'bad');
+  }
+}
+
+async function poll() {
+  await refresh();
+  await loadApprovals();
+  if ($('chk-autorefresh') && $('chk-autorefresh').checked && CURRENT_TAB === 'history') {
+    await loadHistory();
+  } else if (CURRENT_TAB !== 'history') {
+    await loadHistory();
+  }
+  pollTimer = setTimeout(poll, 2500);
+}
+
+renderTools('');
+fillSettings(BOOT.status.config || {});
+poll();
+</script>
+</body>
+</html>

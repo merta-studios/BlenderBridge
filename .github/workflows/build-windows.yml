@@ -1,0 +1,103 @@
+# Builds the Windows EXE, runs it once (smoke test) and uploads it as an
+# artifact.  Publishing a release is release.yml's job - one owner per concern.
+name: Build Windows EXE
+
+on:
+  push:
+    # "arena/**" lets development branches build the EXE too (the artifact is
+    # handy for testing a change before it lands on main).  A tag does not need
+    # to build here - release.yml does that and publishes the release.
+    branches: ["main", "arena/**"]
+  pull_request:
+    paths:
+      - "blenderbridge/**"
+      - "packaging/**"
+      - "tools/**"
+      - ".github/workflows/build-windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build BlenderBridge.exe
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install "pyinstaller>=6.3" -r requirements-dev.txt
+
+      - name: Run unit tests before packaging
+        shell: pwsh
+        run: |
+          python -m pytest tests -q --ignore=tests/blender --tb=short 2>&1 | Tee-Object -FilePath tests.log
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content tests.log | Select-String -Pattern '^(FAILED|ERROR|E   |tests.*Error)' | Select-Object -First 60 | ForEach-Object {
+              Write-Host "::error::$($_.Line)"
+            }
+            exit 1
+          }
+
+      - name: Build the Blender add-on zip
+        run: python tools/build_addon_zip.py
+
+      - name: Build the EXE
+        run: pyinstaller packaging/blenderbridge.spec --clean --noconfirm --log-level INFO
+
+      - name: Smoke test the EXE (must exit 0)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Continue"
+          Write-Host "Starting BlenderBridge.exe --selftest ..."
+          $output = & ".\dist\BlenderBridge.exe" --selftest 2>&1 | Out-String
+          $code = $LASTEXITCODE
+          Write-Host $output
+          if ($code -ne 0) {
+            Write-Error "Smoke test failed with exit code $code"
+            exit 1
+          }
+          if ($output -notmatch "bestanden") {
+            Write-Error "Smoke test output did not contain the success marker"
+            exit 1
+          }
+          if (-not (Test-Path ".\dist\BlenderBridge.exe")) {
+            Write-Error "BlenderBridge.exe was not produced"
+            exit 1
+          }
+
+      - name: Assemble the download package
+        shell: pwsh
+        run: |
+          $version = "0.1.0"
+          if ($env:GITHUB_REF -like "refs/tags/v*") {
+            $version = $env:GITHUB_REF -replace "refs/tags/v", ""
+          }
+          $dir = "package/BlenderBridge-$version-windows-x64"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          Copy-Item "dist\BlenderBridge.exe" "$dir\BlenderBridge.exe"
+          Copy-Item "dist\blenderbridge_addon.zip" "$dir\blenderbridge_addon.zip"
+          Copy-Item "packaging\START-HERE.txt" "$dir\START-HERE.txt"
+          Copy-Item "README.md" "$dir\README.md"
+          if (Test-Path "LICENSE") { Copy-Item "LICENSE" "$dir\LICENSE" }
+          Compress-Archive -Path "$dir\*" -DestinationPath "package\BlenderBridge-$version-windows-x64.zip" -Force
+          Get-ChildItem package | Format-Table Name, Length
+
+      - name: Upload the EXE as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlenderBridge-windows-x64
+          path: |
+            package/BlenderBridge-*-windows-x64.zip
+            dist/BlenderBridge.exe
+            dist/blenderbridge_addon.zip
+          if-no-files-found: error
+          retention-days: 90

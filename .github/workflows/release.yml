@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version für diesen Release, z. B. v0.1.0"
+        required: true
+        default: "v0.1.0"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and publish
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install "pyinstaller>=6.3" -r requirements-dev.txt
+      - name: Run unit tests
+        run: python -m pytest tests -q --ignore=tests/blender
+      - name: Build add-on and EXE
+        run: |
+          python tools/build_addon_zip.py
+          pyinstaller packaging/blenderbridge.spec --clean --noconfirm
+      - name: Verify the EXE
+        shell: pwsh
+        run: |
+          $out = & ".\dist\BlenderBridge.exe" --selftest 2>&1 | Out-String
+          Write-Host $out
+          if ($LASTEXITCODE -ne 0 -or $out -notmatch "bestanden") { exit 1 }
+      - name: Package
+        shell: pwsh
+        run: |
+          $version = "${{ github.event.inputs.version }}"
+          if (-not $version) { $version = $env:GITHUB_REF -replace "refs/tags/", "" }
+          $dir = "package/BlenderBridge-$version-windows-x64"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          Copy-Item "dist\BlenderBridge.exe" "$dir\BlenderBridge.exe"
+          Copy-Item "dist\blenderbridge_addon.zip" "$dir\blenderbridge_addon.zip"
+          Copy-Item "packaging\START-HERE.txt" "$dir\START-HERE.txt"
+          Copy-Item "README.md" "$dir\README.md"
+          Compress-Archive -Path "$dir\*" -DestinationPath "package\BlenderBridge-$version-windows-x64.zip" -Force
+      - name: Create the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
+          name: BlenderBridge ${{ github.event.inputs.version || github.ref_name }}
+          draft: false
+          generate_release_notes: true
+          files: |
+            package/BlenderBridge-*-windows-x64.zip
+            dist/blenderbridge_addon.zip
