@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blenderbridge"
+version = "0.1.0"
+description = "Local bridge between an AI agent and a running Blender session"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Merta Studios"}]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "bpy>=4.2; python_version < '3.12'"]
+tls = ["cryptography>=41"]
+
+[project.scripts]
+blenderbridge = "blenderbridge.app:main"
+
+[tool.setuptools]
+packages = ["blenderbridge"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+blenderbridge = ["ui.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

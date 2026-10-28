@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Build output
+build/
+dist/
+*.spec.bak
+artifacts/
+
+# Local runtime data (never commit)
+*.blend
+blenderbridge_backups/
+blenderbridge.log
+logs/
+jobs/
+bb_local_config/
+
+# cloudflared binaries are downloaded, not committed
+bin/cloudflared
+bin/cloudflared.exe
+tools/cloudflared*
