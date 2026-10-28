@@ -485,8 +485,15 @@ Blender-Tests (echtes Blender als Python-Modul):
 
 ```bash
 pip install "bpy==4.2.0"        # nur CPython 3.11
-python -m pytest tests/blender -q
+python -m pytest tests/blender -q          # 29 Tests
+# oder mit Auswertung (empfohlen, siehe unten):
+python tools/run_blender_tests.py -- tests/blender -q
 ```
+
+Hinweis: `bpy` stürzt beim **Beenden** des Interpreters gelegentlich ab
+(SIGSEGV, Exit-Code 139). Das passiert nach den Tests, betrifft das Ergebnis
+also nicht. `tools/run_blender_tests.py` unterscheidet das ehrlich von einem
+echten Testfehler.
 
 Add-on-ZIP bauen:
 
@@ -523,7 +530,10 @@ Ein Test schlägt fehl, wenn du das vergisst.
 | `tests/test_relay.py` | Versiegelung, Chunking, GitHub-Client und Mailbox gegen einen Fake-Server |
 | `tests/test_packaging.py` | Spec, Hidden-Imports, Add-on-ZIP-Inhalt, Workflow-Dateien |
 | `tests/test_sync.py` | Add-on-Kopien identisch mit dem Quellcode |
+| `tests/test_docs.py` | Doku gegen Code: genannte Werkzeuge existieren, JSON-Beispiele gültig, generierte Referenz aktuell |
+| `tests/test_relay_agent.py` | Agenten-Relay-Client ⇄ Connector-Versiegelung interoperabel |
 | `tests/blender/test_blender_integration.py` | **echtes Blender 4.2**: Bereiche, Biegung, Verjüngung, Extrusion, geschützte Bereiche, Beziehungen, Rendering, Sicherung, Skript-Sperre, Socket-Protokoll |
+| `tests/blender/test_e2e_connector.py` | **kompletter Weg**: HTTP-Client → Connector → Socket → echtes Blender → PNG-Download, inklusive Freigabe, Ablehnung, Not-Aus |
 
 ---
 

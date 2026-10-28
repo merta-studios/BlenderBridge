@@ -70,19 +70,47 @@ def _focus_box(params: Dict[str, Any]) -> Tuple[G.Vec3, G.Vec3]:
     return G.aabb_union(boxes)
 
 
-def _engine_chain(requested: str) -> List[str]:
+#: Engines that need a window system / GPU context.  In a background Blender
+#: (``blender --background``, headless CI, or a Python session without a display)
+#: asking for one of these does not raise an exception - the process *aborts*.
+#: So they are only tried when the caller asked for them explicitly or when a
+#: real window system is present.
+GPU_ENGINES = ("BLENDER_EEVEE_NEXT", "BLENDER_EEVEE", "BLENDER_WORKBENCH")
+KNOWN_ENGINES = ("CYCLES",) + GPU_ENGINES
+
+
+def _engine_chain(requested: str, background: Optional[bool] = None) -> List[str]:
+    """Ordered list of engines to try, safest first.
+
+    CPU rendering (Cycles) always works; the GPU engines are a bonus.  Trying an
+    unavailable GPU engine first used to abort Blender in headless runs, which is
+    why the order depends on whether there is a display.
+    """
+    if background is None:
+        background = bool(getattr(bpy.app, "background", False))
     scene_engine = bpy.context.scene.render.engine
+    explicit = requested and requested != "auto"
+    wanted = ENGINE_ALIASES.get(requested.lower(), requested) if explicit else ""
+
     chain: List[str] = []
-    if requested and requested != "auto":
-        chain.append(ENGINE_ALIASES.get(requested.lower(), requested))
-    if scene_engine in ("CYCLES", "BLENDER_EEVEE_NEXT", "BLENDER_EEVEE", "BLENDER_WORKBENCH"):
-        chain.append(scene_engine)
-    chain += ["CYCLES", "BLENDER_EEVEE_NEXT", "BLENDER_WORKBENCH"]
+    if explicit:
+        chain.append(wanted)
+    if not background:
+        if scene_engine in KNOWN_ENGINES:
+            chain.append(scene_engine)
+        chain += ["CYCLES", "BLENDER_EEVEE_NEXT", "BLENDER_WORKBENCH"]
+    else:
+        # Cycles only, unless the caller asked for something specific.
+        if scene_engine == "CYCLES":
+            chain.append("CYCLES")
+        chain.append("CYCLES")
+        if explicit and wanted in GPU_ENGINES and wanted != "CYCLES":
+            chain.append(wanted)
     seen, out = set(), []
-    for e in chain:
-        if e not in seen:
-            seen.add(e)
-            out.append(e)
+    for engine in chain:
+        if engine and engine not in seen:
+            seen.add(engine)
+            out.append(engine)
     return out
 
 
@@ -189,6 +217,10 @@ def preview_render(params: Dict[str, Any], ctx) -> Dict[str, Any]:
         scene.render.film_transparent = transparent
 
         chain = _engine_chain(str(params.get("engine", "auto")))
+        if getattr(bpy.app, "background", False) and "CYCLES" in chain and \
+                chain[0] != "CYCLES":
+            warnings.append("Blender läuft ohne Fenster - GPU-Engines können den "
+                            "Prozess beenden, deshalb zuerst CYCLES.")
         last_error = ""
         for engine in chain:
             try:
