@@ -62,7 +62,9 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          python -m pytest tests/blender -q -rs --tb=short -p no:cacheprovider 2>&1 | tee blender-tests.log
+          # -u keeps the output in the log even if Blender segfaults; -v shows
+          # which test was running when it happened.
+          python -u -m pytest tests/blender -v -rs --tb=short -p no:cacheprovider 2>&1 | tee blender-tests.log
           status=${PIPESTATUS[0]}
           echo "pytest exit code: $status"
           if [ "$status" -ne 0 ]; then

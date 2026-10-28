@@ -44,15 +44,16 @@ abgeflossenen Schlüssel.
 | `GET` | `/v1/jobs/<id>` | Agent | ein Auftrag; `?wait=<sek>` blockiert bis fertig |
 | `GET` | `/v1/jobs/<id>/artifacts/<name>` | Agent | Ergebnisdatei (PNG, GLB, ZIP …) |
 | `POST` | `/v1/jobs/<id>/cancel` | Agent | Auftrag abbrechen |
-| `GET` | `/v1/approvals` | Agent | offene Freigaben |
-| `POST` | `/v1/approvals/<id>` | **UI** | `{"approve": true, "reason": "..."}` |
-| `GET` | `/v1/logs` | UI | Audit-Log (letzte Einträge) |
+| `POST` | `/v1/panic` | **UI** | Not-Aus (`{"stop_tunnel": true, "revoke_keys": false}`) |
+| `GET` | `/v1/approvals` | Agent | offene Freigaben (mit `seconds_left`) |
+| `POST` | `/v1/jobs/<id>/approve` | **UI** | `{"reason": "..."}` |
+| `POST` | `/v1/jobs/<id>/deny` | **UI** | `{"reason": "..."}` |
+| `GET` | `/v1/logs` | Agent | Audit-Log + Debug-Zeilen (letzte Einträge) |
 | `GET/POST/DELETE` | `/v1/keys` | **UI** | Agent-Schlüssel verwalten |
 | `GET/POST` | `/v1/config` | **UI** | Einstellungen lesen/ändern |
 | `GET/POST/DELETE` | `/v1/tunnel` | **UI** | externer Zugang |
 | `GET/POST/DELETE` | `/v1/relay` | **UI** | Relay konfigurieren/starten/stoppen |
-| `POST` | `/v1/trust` | **UI** | Vertrauensfenster (`{"seconds": 120}`) |
-| `POST` | `/v1/panic` | **UI** | Not-Aus |
+| `POST`/`DELETE` | `/v1/trust` | **UI** | Vertrauensfenster öffnen/schließen (`{"seconds": 120}`) |
 
 ### 1.3 Auftrag einreichen
 
@@ -87,18 +88,20 @@ Antwort `202 Accepted`:
 {
   "ok": true,
   "job": {
-    "id": "job_7c1a…",
-    "request_id": "mein-eigener-name-001",
+    "job_id": "job-7c1ax9k2m4p8q1zt",
+    "protocol": "1.0",
     "tool": "mesh.edit",
-    "status": "pending_approval",
+    "params": {"object": "Palme", "region": "stamm", "op": "bend", "angle_deg": 25},
     "risk": "moderate",
+    "status": "pending_approval",
+    "requires_approval": true,
+    "approval_reason": "Risiko 'moderate': Verändert bestehende Objekte oder Geometrie.",
+    "request_id": "mein-eigener-name-001",
+    "note": "Stamm leicht biegen, Handarbeit unten erhalten",
     "created_at": "2026-10-28T13:12:09Z",
-    "approval": {
-      "id": "appr_3d9…",
-      "summary": "mesh.edit auf 'Palme' (Bereich 'stamm')",
-      "risk": "moderate",
-      "expires_at": "2026-10-28T13:17:09Z"
-    }
+    "timeout_s": 120.0,
+    "actor": "agent",
+    "artifacts": []
   }
 }
 ```
@@ -111,7 +114,7 @@ Antwort `202 Accepted`:
 ### 1.4 Ergebnis abholen
 
 ```http
-GET /v1/jobs/job_7c1a…?wait=60
+GET /v1/jobs/job-7c1ax9k2m4p8q1zt?wait=60
 ```
 
 `wait` blockiert serverseitig bis zu 60 s (max. 120) und antwortet, sobald der
@@ -121,21 +124,26 @@ Auftrag fertig ist – das ist billiger als Polling.
 {
   "ok": true,
   "job": {
-    "id": "job_7c1a…",
+    "job_id": "job-7c1ax9k2m4p8q1zt",
     "status": "succeeded",
     "tool": "mesh.edit",
+    "started_at": "2026-10-28T13:12:41Z",
+    "finished_at": "2026-10-28T13:12:41Z",
     "result": {
+      "object": "Palme",
+      "region": "stamm",
+      "op": "bend",
       "moved_vertices": 412,
       "max_displacement": 0.2134,
       "regions_after": ["stamm"],
-      "warnings": ["12 Punkte im geschützten Bereich 'augen' wurden nicht bewegt"]
+      "stale_regions": []
     },
+    "warnings": ["12 Punkte im geschützten Bereich 'augen' wurden nicht bewegt"],
+    "assumptions": ["Drehachse aus dem Bereich übernommen (Z)"],
     "artifacts": [
       {"name": "view_perspective.png", "kind": "image", "bytes": 182344,
-       "url": "/v1/jobs/job_7c1a…/artifacts/view_perspective.png"}
-    ],
-    "timing": {"queued_ms": 12, "run_ms": 340, "total_ms": 352},
-    "audit_id": "aud_9f2…"
+       "url": "/v1/jobs/job-7c1ax9k2m4p8q1zt/artifacts/view_perspective.png"}
+    ]
   }
 }
 ```
@@ -144,7 +152,24 @@ Artefakte werden **nur** über ihren Namen aus dieser Liste ausgeliefert
 (keine Pfade, `..` wird abgewiesen, Endungen sind auf Bild-/Modell-/Textformate
 begrenzt).
 
-### 1.5 Fehler
+### 1.5 Freigabe beantworten
+
+Die Freigabe kommt über die UI-Sitzung, nicht über den Agent-Schlüssel – der
+Agent kann sich also nicht selbst erlauben.
+
+```http
+POST /v1/jobs/job-7c1ax9k2m4p8q1zt/approve
+X-BB-Client: 1
+Content-Type: application/json
+
+{"reason": "nur leicht biegen"}
+```
+
+Danach läuft der Auftrag weiter und `GET /v1/jobs/<id>?wait=…` liefert das
+Ergebnis. `deny` bricht ihn mit `approval_denied` ab. Ohne Antwort verfällt die
+Freigabe nach `approval_timeout_s` (Standard 300 s).
+
+### 1.6 Fehler
 
 ```json
 {
@@ -280,7 +305,8 @@ geändert“). Sie ersetzen keine Antwort.
    geben `regions_after` und `stale_regions` zurück.
 6. **Nichts passiert ohne Freigabe über der Schwelle**, außer der Nutzer hat
    ausdrücklich ein Vertrauensfenster geöffnet.
-7. **Idempotenz:** gleiche `request_id` → gleicher Auftrag, auch nach Retry.
+7. **Idempotenz:** gleiche `request_id` → derselbe Auftrag (`job_id`), auch nach
+   einem Retry. Wichtig, wenn die Verbindung mittendrin abbricht.
 
 ---
 
@@ -302,7 +328,7 @@ def call(tool, params=None, wait=60, dry_run=False):
         job = json.loads(r.read())["job"]
     while True:
         req = urllib.request.Request(
-            f"{BASE}/v1/jobs/{job['id']}?wait=60",
+            f"{BASE}/v1/jobs/{job['job_id']}?wait=60",
             headers={"Authorization": f"Bearer {KEY}"})
         with urllib.request.urlopen(req, timeout=80) as r:
             job = json.loads(r.read())["job"]
