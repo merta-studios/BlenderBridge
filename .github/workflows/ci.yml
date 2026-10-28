@@ -36,7 +36,9 @@ jobs:
   # ------------------------------------------------------- real Blender (bpy)
   blender-tests:
     name: Blender 4.2 integration tests
-    runs-on: ubuntu-latest
+    # Pinned: the bpy 4.2 wheels bundle their own libraries and need a glibc
+    # that matches; newer runner images crashed with a segfault on import.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -53,19 +55,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
           pip install "bpy==4.2.0"
+      - name: Check that Blender imports
+        run: |
+          python -c "import bpy; print('Blender', bpy.app.version_string)"
       - name: Run Blender integration tests
-        run: python -m pytest tests/blender -q -rs
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest tests/blender -q -rs --tb=short 2>&1 | tee blender-tests.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            while IFS= read -r line; do
+              echo "::error::$line"
+            done < <(grep -E '^(FAILED|ERROR|E  )' blender-tests.log | head -40)
+            exit "$status"
+          fi
         env:
           PYTHONUNBUFFERED: "1"
-      - name: Upload render output of the tests
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: blender-test-renders
-          path: |
-            /**/preview_*.png
-          if-no-files-found: ignore
-          retention-days: 5
 
   # ------------------------------------------------------------- windows smoke
   windows-smoke:
@@ -79,8 +85,20 @@ jobs:
       - name: Install test dependencies
         run: python -m pip install --upgrade pip; pip install -r requirements-dev.txt
       - name: Run tests
-        run: python -m pytest tests -q --ignore=tests/blender
+        shell: pwsh
+        run: |
+          python -m pytest tests -q --ignore=tests/blender --tb=short 2>&1 | Tee-Object -FilePath tests.log
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content tests.log | Select-String -Pattern '^(FAILED|ERROR|E   )' | Select-Object -First 40 | ForEach-Object {
+              Write-Host "::error::$($_.Line)"
+            }
+            exit 1
+          }
       - name: Self test
-        run: python -m blenderbridge.app --selftest
+        shell: pwsh
+        run: |
+          $out = python -m blenderbridge.app --selftest 2>&1 | Out-String
+          Write-Host $out
+          if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Build add-on zip on Windows
         run: python tools/build_addon_zip.py

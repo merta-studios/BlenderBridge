@@ -35,7 +35,15 @@ jobs:
           pip install "pyinstaller>=6.3" -r requirements-dev.txt
 
       - name: Run unit tests before packaging
-        run: python -m pytest tests -q --ignore=tests/blender
+        shell: pwsh
+        run: |
+          python -m pytest tests -q --ignore=tests/blender --tb=short 2>&1 | Tee-Object -FilePath tests.log
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content tests.log | Select-String -Pattern '^(FAILED|ERROR|E   |tests.*Error)' | Select-Object -First 60 | ForEach-Object {
+              Write-Host "::error::$($_.Line)"
+            }
+            exit 1
+          }
 
       - name: Build the Blender add-on zip
         run: python tools/build_addon_zip.py
