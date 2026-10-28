@@ -2,7 +2,9 @@ name: Build Windows EXE
 
 on:
   push:
-    branches: ["main"]
+    # "arena/**" lets development branches build the EXE too (the artifact is
+    # handy for testing a change before it lands on main).
+    branches: ["main", "arena/**"]
     tags: ["v*"]
   pull_request:
     paths:
